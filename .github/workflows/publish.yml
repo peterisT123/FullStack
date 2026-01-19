@@ -1,0 +1,96 @@
+name: Publish to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+          
+      - name: Install dependencies
+        run: |
+          pip install nbconvert jupyter
+          
+      - name: Convert notebooks to HTML
+        run: |
+          mkdir -p html_output
+          for notebook in *.ipynb; do
+            if [ -f "$notebook" ]; then
+              jupyter nbconvert --to html "$notebook" --output-dir html_output
+            fi
+          done
+          
+      - name: Create index page
+        run: |
+          cat > html_output/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <meta charset="UTF-8">
+              <title>Full Stack Programming Lectures</title>
+              <style>
+                  body {
+                      font-family: Arial, sans-serif;
+                      max-width: 800px;
+                      margin: 50px auto;
+                      padding: 20px;
+                  }
+                  h1 {
+                      color: #333;
+                  }
+                  ul {
+                      list-style-type: none;
+                      padding: 0;
+                  }
+                  li {
+                      margin: 10px 0;
+                  }
+                  a {
+                      color: #0366d6;
+                      text-decoration: none;
+                      font-size: 18px;
+                  }
+                  a:hover {
+                      text-decoration: underline;
+                  }
+              </style>
+          </head>
+          <body>
+              <h1>Full Stack Programming Lectures</h1>
+              <ul>
+          EOF
+          
+          for html in html_output/*.html; do
+            if [ -f "$html" ] && [ "$(basename "$html")" != "index.html" ]; then
+              filename=$(basename "$html")
+              echo "        <li><a href=\"$filename\">$filename</a></li>" >> html_output/index.html
+            fi
+          done
+          
+          cat >> html_output/index.html << 'EOF'
+              </ul>
+          </body>
+          </html>
+          EOF
+          
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          personal_token: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+          external_repository: peterisT123/peterisT123.github.io
+          publish_branch: main
+          publish_dir: ./html_output
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
